@@ -1,0 +1,98 @@
+plugins {
+    id "com.github.spotbugs" version "2.0.0" apply false
+}
+
+// workaround gradle bug
+ext.SpotBugsTask = com.github.spotbugs.SpotBugsTask
+
+defaultTasks 'build'
+
+allprojects {
+    group 'ai.djl'
+    boolean isRelease = project.hasProperty("release") || project.hasProperty("staging")
+    version = "0.2.0" + (isRelease ? "" : "-SNAPSHOT")
+
+    repositories {
+        jcenter()
+    }
+
+    apply plugin: 'idea'
+    idea {
+        module {
+            outputDir = file('build/classes/java/main')
+            testOutputDir = file('build/classes/java/test')
+            // inheritOutputDirs = true
+        }
+    }
+}
+
+def javaProjects() {
+    return subprojects.findAll();
+}
+
+configure(javaProjects()) {
+    apply plugin: 'java-library'
+    sourceCompatibility = 1.8
+    targetCompatibility = 1.8
+    compileJava.options.encoding = "UTF-8"
+
+    apply from: file("${rootProject.projectDir}/tools/gradle/formatter.gradle")
+    apply from: file("${rootProject.projectDir}/tools/gradle/check.gradle")
+
+    test {
+        maxHeapSize = "1024m"
+
+        useTestNG() {
+            // suiteXmlFiles << new File(rootDir, "testng.xml") //This is how to add custom testng.xml
+        }
+
+        testLogging {
+            showStandardStreams = true
+            events "passed", "skipped", "failed", "standardOut", "standardError"
+        }
+
+        doFirst {
+            systemProperty "ai.djl.logging.level", "debug"
+            systemProperty "disableProgressBar", "true"
+            systemProperty "nightly", System.getProperty("nightly", "false")
+            if (gradle.startParameter.offline) {
+                systemProperty "offline", "true"
+            }
+        }
+    }
+
+    compileJava {
+        options.compilerArgs << "-proc:none" << "-Xlint:all,-options,-static" << "-Werror"
+    }
+
+    compileTestJava {
+        options.compilerArgs << "-proc:none" << "-Xlint:all,-options,-static" << "-Werror"
+    }
+}
+
+apply from: file("${rootProject.projectDir}/tools/gradle/publish.gradle")
+
+def getMXNetNativeLib() {
+    String osName = System.getProperty("os.name")
+    String osPrefix;
+    if (osName.startsWith("Win")) {
+        osPrefix = "win"
+    } else if (osName.startsWith("Mac")) {
+        osPrefix = "osx"
+    } else if (osName.startsWith("Linux")) {
+        osPrefix = "linux"
+    } else {
+        throw new GradleException("Unsupported os: " + osName)
+    }
+
+    try {
+        exec {
+            commandLine "nvidia-smi", "-L"
+        }
+        return "mxnet-native-cu101mkl:1.6.0-a-SNAPSHOT:${osPrefix}-x86_64"
+    } catch (Exception e) {
+        project.logger.debug("No cuda is detected");
+    }
+
+    return "mxnet-native-mkl:1.6.0-a-SNAPSHOT:${osPrefix}-x86_64"
+}

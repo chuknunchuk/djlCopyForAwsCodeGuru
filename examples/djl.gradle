@@ -1,0 +1,56 @@
+/**
+ * This build file is used by Deep Java Library (DJL) project internally.
+ */
+
+plugins {
+    id 'application'
+}
+
+repositories {
+    maven {
+        url "https://oss.sonatype.org/content/repositories/snapshots/"
+    }
+}
+
+dependencies {
+    implementation "commons-cli:commons-cli:${commons_cli_version}"
+    implementation "org.apache.logging.log4j:log4j-slf4j-impl:${log4j_slf4j_version}"
+    implementation "com.google.code.gson:gson:${gson_version}"
+    implementation project(":api")
+    implementation project(":basicdataset")
+    implementation project(":model-zoo")
+    implementation project(":mxnet:mxnet-model-zoo")
+
+    runtimeOnly "ai.djl.mxnet:${getMXNetNativeLib()}"
+
+    testImplementation("org.testng:testng:${testng_version}") {
+        exclude group: "junit", module: "junit"
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            pom.withXml {
+                // remove mxnet-native-XXX from pom file.
+                Node pomNode = asNode()
+                pomNode.dependencies.'*'.findAll() {
+                    it.artifactId.text().startsWith("mxnet-native-")
+                }.each() {
+                    it.parent().remove(it)
+                }
+            }
+        }
+    }
+}
+
+application {
+    mainClassName = System.getProperty("main", "ai.djl.examples.inference.ObjectDetection")
+}
+
+run {
+    systemProperties System.getProperties()
+    systemProperties.remove("user.dir");
+}
+
+tasks.distTar.enabled = false
