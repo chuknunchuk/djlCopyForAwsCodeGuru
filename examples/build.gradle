@@ -1,0 +1,63 @@
+plugins {
+    id "java"
+    id 'application'
+}
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    implementation "commons-cli:commons-cli:1.4"
+    implementation "org.apache.logging.log4j:log4j-slf4j-impl:2.12.1"
+    implementation "com.google.code.gson:gson:2.8.5"
+    implementation "ai.djl:api:0.2.0"
+    implementation "ai.djl:basicdataset:0.2.0"
+    implementation "ai.djl:model-zoo:0.2.0"
+    implementation "ai.djl.mxnet:mxnet-model-zoo:0.2.0"
+
+    runtimeOnly "ai.djl.mxnet:${getMXNetNativeLib()}"
+
+    testImplementation 'org.testng:testng:6.14.3'
+}
+
+test {
+    maxHeapSize = "1024m"
+
+    useTestNG()
+}
+
+application {
+    mainClassName = System.getProperty("main", "ai.djl.examples.inference.ObjectDetection")
+}
+
+run {
+    systemProperties System.getProperties()
+}
+
+tasks.distTar.enabled = false
+
+def getMXNetNativeLib() {
+    String osName = System.getProperty("os.name")
+    String osPrefix;
+    if (osName.startsWith("Win")) {
+        osPrefix = "win"
+    } else if (osName.startsWith("Mac")) {
+        osPrefix = "osx"
+    } else if (osName.startsWith("Linux")) {
+        osPrefix = "linux"
+    } else {
+        throw new GradleException("Unsupported os: " + osName)
+    }
+
+    try {
+        exec {
+            commandLine "nvidia-smi", "-L"
+        }
+        return "mxnet-native-cu101mkl:1.6.0-a:${osPrefix}-x86_64"
+    } catch (Exception e) {
+        project.logger.debug("No cuda is detected");
+    }
+
+    return "mxnet-native-mkl:1.6.0-a:${osPrefix}-x86_64"
+}
