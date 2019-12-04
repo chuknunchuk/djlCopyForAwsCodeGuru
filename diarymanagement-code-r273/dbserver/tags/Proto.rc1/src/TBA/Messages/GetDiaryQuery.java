@@ -1,0 +1,98 @@
+package TBA.Messages;
+
+import TBA.Exceptions.MessagesException;
+
+/**
+ * This class is for the LOGOUT query message.
+ *<p>
+ * @author Dan McGrath
+ *
+ * @version $Rev:: 121           $ $Date:: 2009-09-13 #$
+ */
+public class GetDiaryQuery extends QueryMessage
+{
+   private final String QueryType = "GETDIARY";
+   private int DiaryID = -1;
+   
+   private final int diaryIDLen = 4;
+
+   public GetDiaryQuery() { }
+
+   /**
+    * The Get() Method gets the LOGOUT message with the Message and Query header.
+    *<p>
+    * @returns The actual message string you can send
+    *<p>
+    * @throws MessagesException
+    *<p>
+    * @see #Set(java.lang.String)
+    */
+   @Override
+   public String Get(String dummy) throws MessagesException
+   {
+      String message = null;
+
+      if (DiaryID == -1)
+      {
+          throw new MessagesException("Diary ID not set");
+      }
+
+      message = String.format("%0" + Integer.toString(diaryIDLen) + "x", DiaryID);
+
+      super.SetQueryType(QueryType);
+      
+      return super.Get(message);
+   }
+
+   /**
+    * The Set() Method strips out all the fields of a Logout Query message. They
+    * are then available by the Get methods of this class.
+    *<p>
+    * @param message The message as recieved.
+    *<p>
+    * @throws MessagesException
+    *<p>
+    * @see #GetQuery(java.lang.String)
+    */
+   @Override
+   public String Set(String message) throws MessagesException
+   {
+      message = super.Set(message);
+
+      if(message.length() != diaryIDLen)
+      {
+         throw new MessagesException("Get Diary Query is invalid");
+      }
+
+      try
+      {
+         DiaryID = Integer.parseInt(message.substring(0,diaryIDLen),16); //16 coz hexidecimal
+         message = message.substring(diaryIDLen, message.length());
+         //duno if i might have to kill this top line
+      }
+      catch (NumberFormatException ex)
+      {
+         throw new MessagesException("entry ID is invalid");
+      }
+
+      return null;
+   }
+   
+   public int GetDiaryID()
+   {
+       return DiaryID;
+   }
+   
+   public void SetDiaryID(int temp) throws MessagesException
+   {
+      if(temp < 0)
+      {
+         DiaryID = -1;
+         throw new MessagesException("The Diary ID is invalid");
+      }
+      else
+      {
+         DiaryID = temp;
+      }
+   }
+}
